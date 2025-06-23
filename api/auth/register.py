@@ -1,6 +1,13 @@
 from flask_restful import Resource, reqparse
 from flask_bcrypt import generate_password_hash
 from sqlalchemy.exc import IntegrityError
+from flask_jwt_extended import (
+  set_access_cookies,
+  set_refresh_cookies,
+  create_access_token,
+  create_refresh_token
+)
+from flask import make_response
 
 from ..utils import emailtype
 from ..models import User
@@ -33,7 +40,6 @@ class Register(Resource):
         email=email,
         age=age
       )
-
       db.session.add(user)
       db.session.commit()
     except IntegrityError:
@@ -42,5 +48,12 @@ class Register(Resource):
     except Exception as e:
       db.session.rollback()
       return { "message": f"Unexpected server error => {e}" }, 500
-    
-    return { "id": user.id, "message": "User created" }, 201
+
+    access_token = create_access_token(identity=username)
+    refresh_token = create_refresh_token(identity=username)
+
+    response = make_response({ "id": user.id, "message": "User created" }, 201)
+    set_access_cookies(response, access_token)
+    set_refresh_cookies(response, refresh_token)
+
+    return response
